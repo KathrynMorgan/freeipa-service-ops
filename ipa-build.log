@@ -1,0 +1,50 @@
+export admin_PASSWD="$1"
+export ipa_DOMAIN="braincraft.io"
+export ipa_REALM="BRAINCRAFT.IO"
+export server_FQDN="ipa.braincraft.io"
+export server_IPADDR="10.0.0.246"
+
+yum install ipa-server bind-dyndb-ldap ipa-server-dns rng-tools vsftpd vim git
+systemctl start rngd && systemctl enable rngd && systemctl status rngd
+systemctl enable vsftpd && systemctl start vsftpd && firewall-cmd --permanent --add-service=ftp
+
+echo "${server_IPADDR} ${server_FQDN}" >>/etc/hosts
+hostnamectl set-hostname ${server_FQDN}
+echo ${server_FQDN} >/etc/hostname 
+
+ipa-server-install --idstart=1000000 --idmax=2000000 --ds-password=${admin_PWD} --admin-password=${admin_PWD} --ip-address=${server_IPADDR} --no-host-dns --realm="${ipa_REALM}" --domain="${ipa_DOMAIN}" --hostname="${ipa_HOSTNAME}" --setup-dns --enablemkhomedir --mkhomedir --ssh-trust-dns --allow-zone-overlap --auto-reverse --forwarder="dns_FORWARDER" --no-dnssec-validation
+clear ; ipactl status
+
+cp /root/cacert.p12 /var/ftp/pub/
+
+kinit admin
+authconfig --enablemkhomedir --update
+ipa config-mod --defaultshell=/bin/bash
+
+# ipa user-add admin --first=Administrator --last=Administrator --email="admin@braincraft.io" --password
+# ipa user-enable admin
+# kinit katamo
+
+ipa user-add katamo --first=Kathryn --last=Morgan --email="kathryn.morgan@braincraft.io" --password --sshpubkey="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC/mBZTQYvv9TK+T4qzW4LahCXKaKCaMdf52/Dqy3GWOXnJm+IniMPi1l0bd/f+8BVl4eVMR2pQ5f9uzNzSTFcxL20Nb0hiOPCa3c9KHpZnUKAgCnJavY2cJQYrQ/E8pFdH0HYJsFD49/kZwg73f5/tT6AIVcvhZoVnd9h6GzXwqaS+0QCl/EZsRGsuDKAtt6RNqdrqeZNnHjQRpMvCRapXG99mBTtS6F8Xc2+hGLgRhmklvM5Cz+AbLH4/91/ds9a0ezYXD5Hqm8lyACic326P2lHlmBj2JfUW18b0VNazAUHLhJKpq7HOCwhpPHVRRnaLX1bxs5n2GtYnLpWL0pz3 tghadmin@myprecious"
+
+ipa user-enable katamo
+ipa user-show katamo
+kinit katamo
+
+ipa sudorule-find ALL
+ipa sudorule-add --runasusercat=all --cmdcat=all --hostcat=all ALL
+ipa group-add admins
+ipa sudocmdgroup-add admins
+ipa sudorule-add-user --groups=admins ALL
+ipa group-show admins
+
+#################################################################################
+# REFRENCE
+# firewall-cmd --permanent --add-service={http,https,ldap,ldaps,kerberos,dns,kpasswd,ntp} << this syntax should work, needs tested
+# ipa sudorule-mod --runasusercat=all ALL
+ipa dnsrecord-add bastion.braincraft.io --a-rec 192.168.2.114
+ipa dnsrecord-add braincraft.io bastion.braincraft.io --a-rec 192.168.2.114
+ipa dnsrecord-del braincraft.io bastion.braincraft.io --a-rec 192.168.2.114
+ipa dnsrecord-add braincraft.io bastion --a-rec 192.168.2.114
+ipa dnsrecord-add braincraft.io bionic-vdi01 --a-rec 192.168.2.2
+ipa dnsconfig-mod --forwarder=192.168.2.10 --forwarder=192.168.2.1 --forwarder=10.0.0.1 --forwarder=8.8.8.8
