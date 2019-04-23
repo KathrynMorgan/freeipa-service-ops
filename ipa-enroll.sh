@@ -18,6 +18,12 @@ ip_ADDR=$(ip addr show | grep "inet\b" | grep "10.10.0" | awk '{print $2}' | cut
 #echo "${name_HOST}.${ipa_DOMAIN}" >/etc/hostname
 #hostnamectl set-hostname $(cat /etc/hostname)
 
+## Install IPA CA Root Certificate (On Client)
+mkdir /usr/local/share/ca-certificates/ipa
+wget -O /usr/local/share/ca-certificates/ipa/ipa-ca.crt http://ipa.mini-stack.maas/ipa/config/ca.crt
+chmod 400 /usr/local/share/ca-certificates/ipa/*
+update-ca-certificates
+
 apt-get install -y freeipa-client openssh-server sssd nscd nslcd
 
 ipa-client-install                   \
@@ -33,11 +39,6 @@ ipa-client-install                   \
     --realm=${ipa_REALM}             \
     --unattended --force-join
 
-## Install IPA CA Root Certificate (On Client)
-mkdir /usr/local/share/ca-certificates/ipa
-wget -O /usr/local/share/ca-certificates/ipa/ipa-ca.crt http://ipa.mini-stack.maas/ipa/config/ca.crt
-chmod 400 /usr/local/share/ca-certificates/ipa/*
-update-ca-certificates
 
 ## REFRENCE
 #	--configure-firefox
